@@ -1,0 +1,50 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build & Run",
+			"detail": "Compile Source/ to GravityGolf.pdx and (re)launch the Simulator",
+			"type": "shell",
+			"command": "& \"$env:PLAYDATE_SDK_PATH\\bin\\pdc.exe\" Source GravityGolf.pdx; if ($LASTEXITCODE -eq 0) { Get-Process PlaydateSimulator -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 400; Start-Process \"$env:PLAYDATE_SDK_PATH\\bin\\PlaydateSimulator.exe\" -ArgumentList \"$PWD\\GravityGolf.pdx\" }",
+			"options": {
+				"cwd": "C:\\Users\\maulu\\Documents\\PlaydateSDK\\Games\\3_hour_slop",
+				"shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] }
+			},
+			"group": { "kind": "build", "isDefault": true },
+			"presentation": { "reveal": "silent", "clear": true },
+			"problemMatcher": {
+				"owner": "lua",
+				"fileLocation": ["relative", "C:\\Users\\maulu\\Documents\\PlaydateSDK\\Games\\3_hour_slop"],
+				"pattern": {
+					"regexp": "^(?:error:\\s+)?(.+?):(\\d+):\\s*(.*)$",
+					"file": 1,
+					"line": 2,
+					"message": 3
+				}
+			}
+		},
+		{
+			"label": "Build only",
+			"detail": "Compile Source/ to GravityGolf.pdx without touching the Simulator",
+			"type": "shell",
+			"command": "& \"$env:PLAYDATE_SDK_PATH\\bin\\pdc.exe\" Source GravityGolf.pdx",
+			"options": {
+				"cwd": "C:\\Users\\maulu\\Documents\\PlaydateSDK\\Games\\3_hour_slop",
+				"shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] }
+			},
+			"group": "build",
+			"presentation": { "reveal": "silent", "clear": true }
+		},
+		{
+			"label": "Verify levels (physics harness)",
+			"detail": "Run the Python solvability/regression gates",
+			"type": "shell",
+			"command": "python \"C:\\Users\\maulu\\AppData\\Local\\Temp\\claude\\C--Users-maulu-Documents-PlaydateSDK-Games-3-hour-slop\\3ace5aab-3670-4c41-9e39-5fac7f89ff87\\scratchpad\\verify.py\"",
+			"options": {
+				"shell": { "executable": "powershell.exe", "args": ["-NoProfile", "-Command"] }
+			},
+			"group": "test",
+			"presentation": { "reveal": "always", "clear": true }
+		}
+	]
+}

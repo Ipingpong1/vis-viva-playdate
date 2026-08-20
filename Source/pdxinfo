@@ -1,0 +1,6 @@
+name=Vis-Viva
+author=Matias Ortiz and Mauricio Luzardo
+description=N-body gravity golf. Crank to aim, hold B to burn, break the wall at speed.
+bundleID=com.slop.gravitygolf
+version=0.5
+buildNumber=4
