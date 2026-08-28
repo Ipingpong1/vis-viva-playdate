@@ -254,12 +254,18 @@ Menu.enterTitle()
 local sysmenu = pd.getSystemMenu()
 
 -- the OS allows 3 custom items, so the pause menu swaps wholesale between the
--- game set and the editor set
-local function setSysMenu(editorMode)
+-- game set, the editor set, and the playtest set. Playtest is the editor set
+-- with the one item that makes no sense mid-run ("play level" -- you already
+-- are) swapped for the way back out of it.
+local function setSysMenu(mode)
 	sysmenu:removeAllMenuItems()
-	if editorMode then
+	if mode == "editor" or mode == "test" then
 		sysmenu:addMenuItem("save level", function() pendingState = "edSave" end)
-		sysmenu:addMenuItem("play level", function() pendingState = "edPlay" end)
+		if mode == "test" then
+			sysmenu:addMenuItem("continue editing", function() pendingState = "edReturn" end)
+		else
+			sysmenu:addMenuItem("play level", function() pendingState = "edPlay" end)
+		end
 		sysmenu:addMenuItem("exit editor", function() pendingState = "edExit" end)
 	else
 		sysmenu:addMenuItem("level select", function() pendingState = "select" end)
@@ -273,7 +279,7 @@ local function setSysMenu(editorMode)
 		end)
 	end
 end
-setSysMenu(false)
+setSysMenu("game")
 
 local function gotoEditor()
 	Sound.thrust(false)
@@ -281,7 +287,7 @@ local function gotoEditor()
 	shakeMag = 0
 	pd.display.setOffset(0, 0)
 	gfx.setDrawOffset(0, 0)
-	setSysMenu(true)
+	setSysMenu("editor")
 	state = "editor"
 end
 
@@ -306,7 +312,7 @@ end
 
 local function exitEditor()
 	local ctx = Editor.ctx()
-	setSysMenu(false)
+	setSysMenu("game")
 	if ctx and ctx.kind == "builtin" then
 		loadLevel(ctx.idx)
 	elseif ctx and ctx.kind == "custom" and ctx.idx then
@@ -435,6 +441,7 @@ function playdate.update()
 			editorSave()
 		elseif p == "edPlay" then
 			loadLevelData(Editor.workingLevel(), { kind = "test" })
+			setSysMenu("test")
 		elseif p == "edExit" then
 			exitEditor()
 		elseif p == "edReturn" then
@@ -480,8 +487,15 @@ function playdate.update()
 	end
 
 	local thrusting = false
+	-- The system keyboard draws over a still-running game loop (Editor.update
+	-- already bails for this reason). Naming a level from a playtest would
+	-- otherwise leave the ship flying into a planet while you type, so freeze
+	-- input and physics and fall through to the draw pass.
+	local kbdUp = pd.keyboard.isVisible()
 
-	if state == "playing" then
+	if kbdUp then
+		Sound.thrust(false)
+	elseif state == "playing" then
 		if pd.buttonJustPressed(pd.kButtonA) or pd.buttonJustPressed(pd.kButtonDown) then
 			Sound.reset()
 			reloadLevel()
@@ -654,6 +668,9 @@ function playdate.update()
 		Draw.goalArrow(level, gateOpen, camX, camY)
 	end
 	Draw.hud(ship, level, speed, (levelCtx.kind == "builtin") and curLevel or nil, runTime)
+	if kbdUp then
+		Draw.nameField(pd.keyboard.text, pd.keyboard.left and pd.keyboard.left() or 200, frame)
+	end
 	if DEBUG then
 		pd.drawFPS(378, 228)
 	end

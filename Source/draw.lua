@@ -302,6 +302,37 @@ function Draw.prompt(text, cx, y, f)
 	end
 end
 
+-- ---- live name field ----
+-- The system keyboard owns the right side of the screen and draws over a still
+-- running game loop; it never shows the text back to you, so the field being
+-- typed into has to be rendered here, in whatever room is left on the left.
+-- kbLeft is the keyboard's left edge, so the panel never slides underneath it.
+function Draw.nameField(text, kbLeft, frame)
+	if not fontBold then fontBold = gfx.getSystemFont("bold") end
+	local f = gfx.getSystemFont()
+	local x, y, h = 8, 176, 54
+	local w = math.max(110, math.min((kbLeft or 200) - 16, 232))
+	gfx.setColor(gfx.kColorBlack)
+	gfx.fillRect(x, y, w, h)
+	gfx.setColor(gfx.kColorWhite)
+	-- the border pulses: this panel is the thing you are editing right now
+	gfx.setLineWidth((math.floor(frame / 6) % 2 == 0) and 3 or 1)
+	gfx.drawRect(x, y, w, h)
+	gfx.setLineWidth(1)
+	gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
+	f:drawTextAligned("LEVEL NAME", x + 9, y + 7, kTextAlignment.left)
+	-- scroll to the tail once the name outgrows the panel: the caret end is the
+	-- part you are actually looking at while typing
+	local shown = text or ""
+	while #shown > 0 and fontBold:getTextWidth(shown) > w - 26 do
+		shown = shown:sub(2)
+	end
+	fontBold:drawTextAligned(shown, x + 11, y + 27, kTextAlignment.left)
+	if math.floor(frame / 8) % 2 == 0 then
+		gfx.fillRect(x + 12 + fontBold:getTextWidth(shown), y + 27, 2, fontBold:getHeight())
+	end
+end
+
 function Draw.bigText(text, cx, y)
 	if not fontBold then fontBold = gfx.getSystemFont("bold") end
 	gfx.setImageDrawMode(gfx.kDrawModeFillBlack)

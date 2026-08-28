@@ -48,6 +48,25 @@ local function posOf(obj, orbitField)
 	return obj.x or 0, obj.y or 0
 end
 
+-- Levels authored before the editor existed (L1-5) give bodies an explicit gm
+-- and no density; custom levels saved by older builds can be missing fields the
+-- editor edits directly. The editor works in density space, so gm is converted
+-- once here and then DROPPED -- leaving it would silently outrank every density
+-- edit, since loadLevelData prefers src.gm when it is present.
+local function normalize(lv)
+	for _, b in ipairs(lv.bodies) do
+		b.r = b.r or 12
+		b.density = b.density or (b.gm and b.gm / (K_DENSITY * b.r * b.r * b.r)) or 1.2
+		b.gm = nil
+		if b.free then b.vx, b.vy = b.vx or 0, b.vy or 0 end
+	end
+	for _, wh in ipairs(lv.wormholes) do
+		wh.r = wh.r or 10
+		wh.density = wh.density or 2.5
+	end
+	lv.ship.vx, lv.ship.vy = lv.ship.vx or 0, lv.ship.vy or 0
+end
+
 -- ---- session ----
 function Editor.open(levelTbl, ctx)
 	local lv = deepcopy(levelTbl)
@@ -59,6 +78,7 @@ function Editor.open(levelTbl, ctx)
 	lv.goal = lv.goal or { x1 = lv.bounds.w - 40, y1 = 40, x2 = lv.bounds.w - 40, y2 = lv.bounds.h - 40 }
 	lv.fuel = lv.fuel or 200
 	lv.vmin = lv.vmin or 100
+	normalize(lv)
 	ed = {
 		level = lv, ctx = ctx,
 		curX = lv.ship.x, curY = lv.ship.y,
@@ -117,13 +137,14 @@ function Editor.serialize()
 	add(string.format("\t\tvmin = %g,", lv.vmin))
 	add("\t\tbodies = {")
 	for _, b in ipairs(lv.bodies) do
+		local r, d = b.r or 12, b.density or 1.2
 		if b.orbit then
-			add(string.format("\t\t\t{ r = %g, density = %g, orbit = %s },", b.r, b.density, serializeOrbit(b.orbit)))
+			add(string.format("\t\t\t{ r = %g, density = %g, orbit = %s },", r, d, serializeOrbit(b.orbit)))
 		elseif b.free then
 			add(string.format("\t\t\t{ x = %g, y = %g, r = %g, density = %g, free = true, vx = %g, vy = %g },",
-				b.x, b.y, b.r, b.density, b.vx or 0, b.vy or 0))
+				b.x or 0, b.y or 0, r, d, b.vx or 0, b.vy or 0))
 		else
-			add(string.format("\t\t\t{ x = %g, y = %g, r = %g, density = %g },", b.x, b.y, b.r, b.density))
+			add(string.format("\t\t\t{ x = %g, y = %g, r = %g, density = %g },", b.x or 0, b.y or 0, r, d))
 		end
 	end
 	add("\t\t},")
@@ -134,7 +155,7 @@ function Editor.serialize()
 			if wh.orbitA then extra = extra .. ", orbitA = " .. serializeOrbit(wh.orbitA) end
 			if wh.orbitB then extra = extra .. ", orbitB = " .. serializeOrbit(wh.orbitB) end
 			add(string.format("\t\t\t{ ax = %g, ay = %g, bx = %g, by = %g, r = %g, density = %g%s },",
-				wh.ax, wh.ay, wh.bx, wh.by, wh.r, wh.density, extra))
+				wh.ax or 0, wh.ay or 0, wh.bx or 0, wh.by or 0, wh.r or 10, wh.density or 2.5, extra))
 		end
 		add("\t\t},")
 	end
@@ -444,9 +465,11 @@ end
 
 function Editor.update()
 	if pd.keyboard and pd.keyboard.isVisible and pd.keyboard.isVisible() then
+		ed.kbFrame = (ed.kbFrame or 0) + 1
 		Editor.draw()
 		return
 	end
+	ed.kbFrame = 0
 	local crank = pd.getCrankChange()
 
 	if ed.palette then
@@ -639,7 +662,10 @@ function Editor.draw()
 	gfx.setDrawOffset(0, 0)
 
 	-- HUD
-	local name = lv.name or "UNTITLED"
+	local typing = pd.keyboard and pd.keyboard.isVisible and pd.keyboard.isVisible()
+	-- while the keyboard is up the header follows the keystrokes, not the saved
+	-- name: nothing is committed to lv.name until the keyboard is dismissed with OK
+	local name = typing and (pd.keyboard.text or "") or (lv.name or "UNTITLED")
 	Draw.bigText("EDIT: " .. name, 200, 2)
 	gfx.setImageDrawMode(gfx.kDrawModeFillWhite)
 	gfx.drawTextAligned(string.format("world %dx%d  fuel %d  vmin %d",
@@ -682,5 +708,10 @@ function Editor.draw()
 
 	if ed.msgT and ed.msgT > 0 and ed.msg then
 		Draw.bigText(ed.msg, 200, 100)
+	end
+
+	if typing then
+		local kbLeft = pd.keyboard.left and pd.keyboard.left() or 200
+		Draw.nameField(pd.keyboard.text, kbLeft, ed.kbFrame or 0)
 	end
 end
